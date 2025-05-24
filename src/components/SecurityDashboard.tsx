@@ -1,42 +1,71 @@
 
-import { Shield, AlertTriangle, CheckCircle, Clock, Scan } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, Clock, Scan, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState } from "react";
+import { useErrorHandler } from "@/hooks/useErrorHandler";
+import { useLoading } from "@/hooks/useLoading";
+import { mockSecurityScan, validateApiResponse } from "@/lib/testUtils";
 
 const SecurityDashboard = () => {
-  const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [scanResults, setScanResults] = useState<any>(null);
+  const { isLoading, withLoading } = useLoading();
+  const { error, isError, handleError, clearError } = useErrorHandler();
 
-  const startScan = () => {
-    setIsScanning(true);
-    setScanProgress(0);
-    
-    const interval = setInterval(() => {
-      setScanProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsScanning(false);
-          return 100;
+  const startScan = async () => {
+    try {
+      clearError();
+      setScanProgress(0);
+      setScanResults(null);
+
+      await withLoading(async () => {
+        // Animate progress
+        const progressInterval = setInterval(() => {
+          setScanProgress((prev) => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 200);
+
+        try {
+          const results = await mockSecurityScan();
+          
+          if (!validateApiResponse(results)) {
+            throw new Error('Invalid scan response format');
+          }
+
+          clearInterval(progressInterval);
+          setScanProgress(100);
+          setScanResults(results);
+        } catch (error) {
+          clearInterval(progressInterval);
+          throw error;
         }
-        return prev + 10;
       });
-    }, 300);
+    } catch (error) {
+      handleError(error instanceof Error ? error : new Error('Scan failed'));
+      setScanProgress(0);
+    }
   };
 
   const securityMetrics = [
     {
       title: "Security Score",
-      value: "8.5/10",
+      value: scanResults ? `${scanResults.score}/10` : "8.5/10",
       status: "good",
       icon: Shield,
       description: "Overall security health"
     },
     {
       title: "Vulnerabilities",
-      value: "3 Found",
-      status: "warning",
+      value: scanResults ? `${scanResults.vulnerabilities.length} Found` : "3 Found",
+      status: scanResults?.vulnerabilities.length > 2 ? "warning" : "good",
       icon: AlertTriangle,
       description: "Issues requiring attention"
     },
@@ -49,7 +78,7 @@ const SecurityDashboard = () => {
     },
     {
       title: "Last Scan",
-      value: "2 hours ago",
+      value: scanResults ? "Just now" : "2 hours ago",
       status: "neutral",
       icon: Clock,
       description: "Most recent security check"
@@ -83,6 +112,24 @@ const SecurityDashboard = () => {
             Monitor your application's security status and get instant insights into potential vulnerabilities.
           </p>
         </div>
+
+        {/* Error Alert */}
+        {isError && error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {error.message}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="ml-2" 
+                onClick={clearError}
+              >
+                Dismiss
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Security Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -123,16 +170,25 @@ const SecurityDashboard = () => {
               </div>
               <Button 
                 onClick={startScan} 
-                disabled={isScanning}
+                disabled={isLoading}
                 className="security-gradient text-white"
               >
-                <Scan className={`w-4 h-4 mr-2 ${isScanning ? 'scan-pulse' : ''}`} />
-                {isScanning ? 'Scanning...' : 'Start Scan'}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Scanning...
+                  </>
+                ) : (
+                  <>
+                    <Scan className="w-4 h-4 mr-2" />
+                    Start Scan
+                  </>
+                )}
               </Button>
             </div>
           </CardHeader>
           
-          {isScanning && (
+          {isLoading && (
             <CardContent>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
@@ -147,17 +203,38 @@ const SecurityDashboard = () => {
             </CardContent>
           )}
 
-          {!isScanning && scanProgress === 100 && (
+          {!isLoading && scanResults && (
             <CardContent>
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-4">
                 <div className="flex items-center space-x-2">
                   <CheckCircle className="w-5 h-5 text-emerald-600" />
                   <span className="text-emerald-800 font-medium">Scan completed successfully!</span>
                 </div>
                 <p className="text-emerald-700 text-sm mt-2">
-                  Found 3 potential issues. Check the detailed report below.
+                  Security Score: {scanResults.score}/10 | Found {scanResults.vulnerabilities.length} potential issues
                 </p>
               </div>
+              
+              {scanResults.vulnerabilities.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-slate-800">Detected Issues:</h4>
+                  {scanResults.vulnerabilities.map((vuln: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-amber-50 border border-amber-200 rounded">
+                      <div>
+                        <span className="font-medium text-amber-800">{vuln.type}</span>
+                        <p className="text-xs text-amber-700">{vuln.description}</p>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        vuln.severity === 'high' ? 'bg-red-100 text-red-800' :
+                        vuln.severity === 'medium' ? 'bg-amber-100 text-amber-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {vuln.severity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           )}
         </Card>

@@ -1,9 +1,36 @@
 
-import { Lock, Key, Shield, FileCheck, Settings, Code } from "lucide-react";
+import { Lock, Key, Shield, FileCheck, Settings, Code, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { useErrorHandler } from "@/hooks/useErrorHandler";
+import { DataValidator } from "@/lib/validation";
 
 const SecurityTools = () => {
+  const { toast } = useToast();
+  const { handleError } = useErrorHandler();
+
+  const handleToolLaunch = async (toolName: string) => {
+    try {
+      // Validate tool name
+      const validation = DataValidator.validateRequired(toolName);
+      if (!validation.isValid) {
+        throw new Error('Invalid tool selection');
+      }
+
+      // Simulate tool launch
+      toast({
+        title: "Tool Launched",
+        description: `${toolName} is now ready to use`,
+      });
+
+      // Log for security audit
+      console.log(`Security tool launched: ${toolName} at ${new Date().toISOString()}`);
+    } catch (error) {
+      handleError(error instanceof Error ? error : new Error('Failed to launch tool'));
+    }
+  };
+
   const tools = [
     {
       title: "Data Encryption",
@@ -92,7 +119,11 @@ const SecurityTools = () => {
                       ))}
                     </ul>
                     
-                    <Button className="w-full mt-4 security-gradient text-white" variant="default">
+                    <Button 
+                      className="w-full mt-4 security-gradient text-white" 
+                      variant="default"
+                      onClick={() => handleToolLaunch(tool.title)}
+                    >
                       Launch Tool
                     </Button>
                   </div>
