@@ -128,24 +128,4 @@ The project uses a consistent design system with:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🌟 Acknowledgments
-
-- Built with [Lovable](https://lovable.dev) - AI-powered web development
-- UI components from [shadcn/ui](https://ui.shadcn.com/)
-- Icons from [Lucide](https://lucide.dev/)
-
-## 📞 Support
-
-For support, email support@secureguard.dev or join our community discussions.
-
-## 🔗 Links
-
-- [Live Demo](https://lovable.dev/projects/004d42b7-7e3f-4d3b-8039-9969bf54b052)
-- [Documentation](https://docs.lovable.dev/)
-- [Report Issues](https://github.com/yourusername/secureguard/issues)
-
----
-
-**SecureGuard** - Empowering developers with comprehensive security tools and best practices for safer web applications.
